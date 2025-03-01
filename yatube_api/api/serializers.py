@@ -2,14 +2,21 @@ from rest_framework import serializers
 from posts.models import Post, Group, Comment, Follow, User
 
 
+class AuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username')
+
+
 class PostSerializer(serializers.ModelSerializer):
+    author = AuthorSerializer(read_only=True)
     group = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(), required=False, allow_null=True
     )
 
     class Meta:
         model = Post
-        fields = ("id", "author", "text", "pub_date", "image", "group")
+        fields = '__all__'
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -19,8 +26,9 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)
-    post = serializers.PrimaryKeyRelatedField(read_only=True)
+    author = serializers.SlugRelatedField(
+        read_only=True, slug_field='username'
+    )
 
     class Meta:
         model = Comment
@@ -29,12 +37,10 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class FollowSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(
-        read_only=True,
-        slug_field='username'
+        read_only=True, slug_field='username'
     )
     following = serializers.SlugRelatedField(
-        queryset=User.objects.all(),
-        slug_field='username'
+        queryset=User.objects.all(), slug_field='username'
     )
 
     class Meta:
@@ -42,8 +48,7 @@ class FollowSerializer(serializers.ModelSerializer):
         fields = ('user', 'following')
 
     def validate_following(self, value):
-        """Нельзя подписаться на самого себя."""
-        if self.context['request'].user == value:
-            raise serializers.ValidationError(
-                'Нельзя подписаться на самого себя!')
+        user = self.context['request'].user
+        if user == value:
+            raise serializers.ValidationError('Нельзя подписаться на себя!')
         return value

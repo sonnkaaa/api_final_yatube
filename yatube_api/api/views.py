@@ -1,54 +1,49 @@
-from rest_framework import viewsets, permissions
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from posts.models import Post, Comment, Follow, Group
-from .serializers import (PostSerializer, CommentSerializer,
-                          FollowSerializer, GroupSerializer)
-from .permissions import IsOwnerOrReadOnly
+from rest_framework import viewsets, mixins, permissions, status
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+from django.shortcuts import get_object_or_404
+from posts.models import Post, Group, Comment, Follow
+from .serializers import (
+    PostSerializer, GroupSerializer,
+    CommentSerializer, FollowSerializer
+)
 
 
-class PostViewSet(viewsets.ModelViewSet):
-    """Управление публикациями."""
-    queryset = Post.objects.all()
+class PostViewSet(ModelViewSet):
+    queryset = Post.objects.all().order_by('-pub_date')
     serializer_class = PostSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsOwnerOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
 
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+
+
 class CommentViewSet(viewsets.ModelViewSet):
-    """Управление комментариями к публикациям."""
     serializer_class = CommentSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [IsOwnerOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        """Возвращает комментарии только для данного поста."""
-        post_id = self.kwargs.get('post_id')
-        return Comment.objects.filter(post_id=post_id)
+        post = get_object_or_404(Post, id=self.kwargs.get('post_id'))
+        return post.comments.all()
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user,
-                        post_id=self.kwargs.get('post_id'))
+        post = get_object_or_404(Post, id=self.kwargs.get('post_id'))
+        serializer.save(author=self.request.user, post=post)
 
 
-class FollowViewSet(viewsets.ModelViewSet):
-    """Управление подписками."""
+class FollowViewSet(mixins.ListModelMixin,
+                    mixins.CreateModelMixin,
+                    viewsets.GenericViewSet):
     serializer_class = FollowSerializer
-    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return self.request.user.follower.all()
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-
-
-class GroupViewSet(viewsets.ReadOnlyModelViewSet):
-    """Чтение информации о группах."""
-    queryset = Group.objects.all()
-    serializer_class = GroupSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.AllowAny]
