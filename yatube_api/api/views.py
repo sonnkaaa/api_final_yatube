@@ -1,7 +1,8 @@
 from rest_framework import viewsets, permissions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from posts.models import Post, Comment, Follow, Group
-from .serializers import PostSerializer, CommentSerializer, FollowSerializer, GroupSerializer
+from .serializers import (PostSerializer, CommentSerializer,
+                          FollowSerializer, GroupSerializer)
 from .permissions import IsOwnerOrReadOnly
 
 
@@ -36,7 +37,7 @@ class FollowViewSet(viewsets.ModelViewSet):
     """Управление подписками."""
     serializer_class = FollowSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]  # ❗️ Только для авторизованных пользователей
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Follow.objects.filter(user=self.request.user)
@@ -50,4 +51,4 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.AllowAny]  # ❗️ Группы доступны всем (в `redoc` только `GET`)
+    permission_classes = [permissions.AllowAny]
