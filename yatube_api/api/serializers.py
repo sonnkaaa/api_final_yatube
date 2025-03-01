@@ -3,12 +3,13 @@ from posts.models import Post, Group, Comment, Follow, User
 
 
 class PostSerializer(serializers.ModelSerializer):
-    author = serializers.StringRelatedField(read_only=True)
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Post
-        fields = '__all__'
-
+        fields = ("id", "author", "text", "pub_date", "image", "group")
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
