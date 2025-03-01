@@ -2,8 +2,6 @@ from rest_framework import viewsets, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
-from django.shortcuts import get_object_or_404
-
 from posts.models import Post, Group, Comment, Follow
 from .serializers import (
     PostSerializer, GroupSerializer,
@@ -75,9 +73,12 @@ class FollowViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         following = serializer.validated_data["following"]
         if self.request.user == following:
-            raise ValidationError("Нельзя подписаться на самого себя.")
-        if Follow.objects.filter(user=self.request.user, following=following).exists():
-            raise ValidationError("Вы уже подписаны на этого пользователя.")
+            raise ValidationError("Нельзя "
+                                  "подписаться на самого себя.")
+        if Follow.objects.filter(user=self.request.user,
+                                 following=following).exists():
+            raise ValidationError("Вы уже "
+                                  "подписаны на этого пользователя.")
         serializer.save(user=self.request.user)
 
 
