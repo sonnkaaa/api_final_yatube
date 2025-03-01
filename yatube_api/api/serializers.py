@@ -11,6 +11,7 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = ("id", "author", "text", "pub_date", "image", "group")
 
+
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
