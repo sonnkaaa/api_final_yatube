@@ -11,7 +11,7 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = (AuthorOrReadOnly,)
-    pagination_class = LimitOffsetPagination  # Пагинация
+    pagination_class = LimitOffsetPagination
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -24,25 +24,31 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class CommentViewSet(viewsets.ModelViewSet):
+    """Вьюсет для работы с комментариями."""
     serializer_class = CommentSerializer
-    permission_classes = (
-        permissions.IsAuthenticatedOrReadOnly, AuthorOrReadOnly)
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        post_id = self.kwargs.get('post_id')
-        return Comment.objects.filter(post_id=post_id)
+        post_id = self.kwargs.get("post_id")
+        return Comment.objects.filter(
+            post_id=post_id).select_related("author", "post")
 
     def perform_create(self, serializer):
-        post_id = self.kwargs.get('post_id')
-        post = Post.objects.get(id=post_id)
+        post_id = self.kwargs.get("post_id")
+        post = get_object_or_404(Post, id=post_id)
         serializer.save(author=self.request.user, post=post)
+
+    def perform_update(self, serializer):
+        comment = self.get_object()
+        if comment.author != self.request.user:
+            raise PermissionDenied("Вы не можете "
+                                   "редактировать чужой комментарий.")
+        serializer.save()
 
 
 class FollowViewSet(viewsets.ModelViewSet):
-    """Вьюсет для работы с подписками."""
-    queryset = Follow.objects.all()
     serializer_class = FollowSerializer
-    permission_classes = (CanSubscribe,)
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ['following__username']
 
