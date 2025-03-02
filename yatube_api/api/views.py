@@ -100,7 +100,8 @@ class FollowViewSet(viewsets.ModelViewSet):
             user=self.request.user).select_related("following")
         search_param = self.request.query_params.get("search", None)
         if search_param:
-            queryset = queryset.filter(following__username__icontains=search_param)
+            queryset = queryset.filter(
+                following__username__icontains=search_param)
         return queryset
 
     def list(self, request, *args, **kwargs):
