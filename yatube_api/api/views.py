@@ -2,7 +2,6 @@ from rest_framework import viewsets, permissions
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
-from django.shortcuts import get_object_or_404
 from posts.models import Post, Group, Comment, Follow
 from .serializers import (
     PostSerializer, GroupSerializer,
@@ -11,14 +10,12 @@ from .serializers import (
 
 
 class PostViewSet(viewsets.ModelViewSet):
-    """
-    Вьюсет для управления постами.
-    """
+    """Вьюсет для работы с постами."""
     serializer_class = PostSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        return Post.objects.all()
+        return Post.objects.all().select_related("author", "group")
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -38,68 +35,61 @@ class PostViewSet(viewsets.ModelViewSet):
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Вьюсет для получения списка групп.
-    """
+    """Вьюсет для работы с группами."""
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
 
 
 class CommentViewSet(viewsets.ModelViewSet):
-    """
-    Вьюсет для управления комментариями.
-    """
+    """Вьюсет для работы с комментариями."""
     serializer_class = CommentSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         post_id = self.kwargs.get("post_id")
-        return Comment.objects.filter(post_id=post_id)
+        return Comment.objects.filter(
+            post_id=post_id).select_related("author", "post")
 
     def perform_create(self, serializer):
-        post = get_object_or_404(Post,
-                                 id=self.kwargs.get("post_id"))
+        post_id = self.kwargs.get("post_id")
+        post = Post.objects.get(id=post_id)
         serializer.save(author=self.request.user, post=post)
 
     def perform_update(self, serializer):
         comment = self.get_object()
         if comment.author != self.request.user:
-            raise PermissionDenied("Вы не можете"
-                                   " редактировать чужой комментарий.")
+            raise PermissionDenied("Вы не можете редактировать "
+                                   "чужой комментарий.")
         serializer.save()
 
     def perform_destroy(self, instance):
         if instance.author != self.request.user:
-            raise PermissionDenied("Вы не можете "
-                                   "удалить чужой комментарий.")
+            raise PermissionDenied("Вы не можете удалить "
+                                   "чужой комментарий.")
         instance.delete()
 
 
 class FollowViewSet(viewsets.ModelViewSet):
-    """
-    Вьюсет для управления подписками.
-    """
+    """Вьюсет для работы с подписками."""
     serializer_class = FollowSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return Follow.objects.filter(
+            user=self.request.user).select_related("following")
 
     def perform_create(self, serializer):
         following = serializer.validated_data["following"]
         if self.request.user == following:
-            raise ValidationError("Нельзя "
-                                  "подписаться на самого себя.")
+            raise ValidationError("Нельзя подписаться "
+                                  "на самого себя.")
         if Follow.objects.filter(user=self.request.user,
                                  following=following).exists():
-            raise ValidationError("Вы уже "
-                                  "подписаны на этого "
-                                  "пользователя.")
+            raise ValidationError("Вы уже подписаны "
+                                  "на этого пользователя.")
         serializer.save(user=self.request.user)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
-    """
-    Кастомный класс для аутентификации через JWT.
-    """
+    """Кастомный JWT токен."""
     permission_classes = (AllowAny,)
