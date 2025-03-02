@@ -63,24 +63,28 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         post_id = self.kwargs.get("post_id")
         return Comment.objects.filter(
-            post_id=post_id).select_related("author", "post")
-
-    def list(self, request, *args, **kwargs):
-        """Возвращает список комментариев к посту."""
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            post_id=post_id
+        ).select_related("author", "post")
 
     def perform_create(self, serializer):
         post_id = self.kwargs.get("post_id")
         post = get_object_or_404(Post, id=post_id)
         serializer.save(author=self.request.user, post=post)
 
-    def perform_update(self, serializer):
+    def update(self, request, *args, **kwargs):
+        """Обновление комментария с проверкой владельца."""
         comment = self.get_object()
-        if comment.author != self.request.user:
-            raise PermissionDenied("Вы не можете "
-                                   "редактировать чужой комментарий.")
+        if comment.author != request.user:
+            raise PermissionDenied("Вы не можете редактировать "
+                                   "чужой комментарий.")
+        serializer = self.get_serializer(
+            comment, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def perform_update(self, serializer):
         serializer.save()
 
     def perform_destroy(self, instance):
