@@ -9,11 +9,15 @@ class AuthorSerializer(serializers.ModelSerializer):
 
 
 class PostSerializer(serializers.ModelSerializer):
-    author = serializers.ReadOnlyField(source="author.username")
+    author = AuthorSerializer(read_only=True)
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(), required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Post
-        fields = ("id", "text", "author", "pub_date", "image")
+        fields = ['id', 'text', 'author', 'pub_date', 'group']
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -29,6 +33,10 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ("id", "text", "author", "post", "created")
+        extra_kwargs = {
+            'author': {'read_only': True},
+            'post': {'read_only': True}
+        }
 
 
 class FollowSerializer(serializers.ModelSerializer):
@@ -46,5 +54,11 @@ class FollowSerializer(serializers.ModelSerializer):
     def validate_following(self, value):
         user = self.context['request'].user
         if user == value:
-            raise serializers.ValidationError('Нельзя подписаться на себя!')
+            raise serializers.ValidationError(
+                'Нельзя подписаться на себя!')
+        if Follow.objects.filter(user=user,
+                                 following=value).exists():
+            raise serializers.ValidationError('Вы уже '
+                                              'подписаны на '
+                                              'этого пользователя.')
         return value
